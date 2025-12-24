@@ -1,0 +1,7 @@
+{
+  "name": "Fashion Contacts CRM",
+  "description": "A specialized CRM for fashion photographers to scan business cards, extract data using AI, and manage client follow-ups via WhatsApp.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
