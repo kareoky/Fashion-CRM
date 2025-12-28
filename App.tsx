@@ -20,9 +20,12 @@ import {
   Calendar,
   X,
   Share2,
-  Check
+  Check,
+  Zap,
+  BrainCircuit,
+  AlertCircle
 } from 'lucide-react';
-import { extractBusinessCardData } from './services/geminiService';
+import { extractBusinessCardData, generateFollowUpStrategy } from './services/geminiService';
 import { BusinessCardData, ContactCategory, ContactStatus } from './types';
 import { CATEGORIES, STATUSES, DEFAULT_TEMPLATES } from './constants';
 
@@ -30,6 +33,7 @@ const App: React.FC = () => {
   const [contacts, setContacts] = useState<BusinessCardData[]>([]);
   const [view, setView] = useState<'list' | 'pipeline'>('list');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedContact, setSelectedContact] = useState<BusinessCardData | null>(null);
   const [showPlaybook, setShowPlaybook] = useState(false);
@@ -105,12 +109,31 @@ const App: React.FC = () => {
     }
   };
 
+  const handleGenerateStrategy = async () => {
+    if (!selectedContact) return;
+    setIsGeneratingStrategy(true);
+    try {
+      const strategy = await generateFollowUpStrategy(selectedContact);
+      updateContact({ ...selectedContact, aiStrategy: strategy });
+    } catch (error) {
+      alert("فشل توليد الخطة. تأكد من جودة الاتصال بالإنترنت.");
+    } finally {
+      setIsGeneratingStrategy(false);
+    }
+  };
+
+  const deleteContact = (id: string) => {
+    if (window.confirm('هل أنت متأكد من حذف هذا العميل نهائياً؟')) {
+      setContacts(prev => prev.filter(c => c.id !== id));
+      setSelectedContact(null);
+    }
+  };
+
   const openWhatsApp = (contact: BusinessCardData, templateText: string) => {
-    // فصل الأرقام بناءً على أي فواصل (مسافات، فواصل منقوطة، فواصل عادية)
     const allNumbers = contact.whatsapp
       .split(/[;,\s]+/)
       .map(n => n.trim())
-      .filter(n => n.length > 7); // استبعاد الأرقام القصيرة جداً التي قد تكون خطأ في التحليل
+      .filter(n => n.length > 7);
     
     if (allNumbers.length > 1) {
       setPhoneSelector({ contact, template: templateText, numbers: allNumbers });
@@ -128,30 +151,12 @@ const App: React.FC = () => {
       .replace(/{{event}}/g, "معرض الأزياء");
     
     const encodedText = encodeURIComponent(text);
-    
-    // منطق تنظيف الرقم المطور
     let raw = number.trim();
-    
-    // 1. التعامل مع البدايات (حذف 00 أو +)
     if (raw.startsWith('00')) raw = raw.substring(2);
     if (raw.startsWith('+')) raw = raw.substring(1);
-    
-    // 2. حذف أي مسافات أو علامات متبقية
     let clean = raw.replace(/\D/g, ''); 
-    
-    // 3. ذكاء كود الدولة (مصر كمثال أساسي)
-    // إذا كان الرقم يبدأ بـ 20 فهو كامل
-    if (clean.startsWith('20')) {
-      // رقم سليم بالفعل
-    } 
-    // إذا كان يبدأ بـ 01 فهو موبايل مصري بدون كود الدولة
-    else if (clean.startsWith('01') && clean.length === 11) {
-      clean = '2' + clean; // نحوله لـ 201...
-    }
-    // إذا كان يبدأ بـ 1 فقط (بدون الـ 0)
-    else if (clean.startsWith('1') && clean.length === 10) {
-      clean = '20' + clean;
-    }
+    if (!clean.startsWith('20') && clean.startsWith('01') && clean.length === 11) clean = '2' + clean;
+    else if (!clean.startsWith('20') && clean.startsWith('1') && clean.length === 10) clean = '20' + clean;
 
     const whatsappUrl = `https://api.whatsapp.com/send?phone=${clean}&text=${encodedText}`;
     window.open(whatsappUrl, '_blank');
@@ -298,7 +303,6 @@ const App: React.FC = () => {
           <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[48px] safe-bottom p-8 animate-in slide-in-from-bottom duration-400">
              <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-10"></div>
              <h3 className="text-2xl font-black text-slate-950 mb-4 text-center">اختر الرقم للإرسال</h3>
-             <p className="text-slate-400 text-center text-sm font-bold mb-8">أي رقم تود مراسلته على واتساب؟</p>
              <div className="space-y-4">
                 {phoneSelector.numbers.map((number, idx) => (
                    <button 
@@ -362,16 +366,17 @@ const App: React.FC = () => {
           <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setSelectedContact(null)}></div>
           <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[48px] safe-bottom max-h-[92vh] overflow-y-auto custom-scroll animate-in slide-in-from-bottom duration-500 ios-shadow">
              <div className="sticky top-0 bg-white/90 backdrop-blur-md px-8 py-4 flex justify-between items-center z-10">
-                <button onClick={() => setSelectedContact(null)} className="p-2 bg-slate-100 rounded-full text-slate-400"><X className="w-5 h-5" /></button>
+                <button onClick={() => deleteContact(selectedContact.id)} className="p-2 bg-rose-50 rounded-full text-rose-500 active:bg-rose-100 transition-colors"><Trash2 className="w-5 h-5" /></button>
                 <div className="w-12 h-1.5 bg-slate-200 rounded-full"></div>
-                <button className="p-2 bg-slate-100 rounded-full text-slate-400"><Share2 className="w-5 h-5" /></button>
+                <button onClick={() => setSelectedContact(null)} className="p-2 bg-slate-100 rounded-full text-slate-400"><X className="w-5 h-5" /></button>
              </div>
              
              <div className="p-8 space-y-8 pb-12">
                 {/* Profile Header */}
                 <div className="flex flex-col items-center text-center space-y-4">
-                   <div className="w-28 h-28 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[40px] flex items-center justify-center text-white text-4xl font-black shadow-2xl shadow-indigo-100 uppercase">
+                   <div className="w-28 h-28 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[40px] flex items-center justify-center text-white text-4xl font-black shadow-2xl shadow-indigo-100 uppercase relative overflow-hidden group">
                       {selectedContact.companyName.charAt(0)}
+                      <div className="absolute inset-0 bg-black/20 opacity-0 group-active:opacity-100 transition-opacity flex items-center justify-center text-xs font-bold">تغيير</div>
                    </div>
                    <div className="space-y-1">
                       <input 
@@ -387,21 +392,91 @@ const App: React.FC = () => {
                    </div>
                 </div>
 
-                {/* AI Playbook Action */}
-                <div className="bg-slate-900 p-6 rounded-[36px] text-white flex items-center gap-5 shadow-2xl shadow-slate-200">
-                   <div className="w-12 h-12 bg-indigo-500 rounded-2xl flex items-center justify-center shrink-0">
-                      <MessageCircle className="w-6 h-6" />
+                {/* AI Action Plan Card */}
+                <div className="bg-gradient-to-br from-slate-900 to-indigo-950 p-6 rounded-[36px] text-white space-y-4 shadow-2xl shadow-indigo-200 relative overflow-hidden">
+                   <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl"></div>
+                   <div className="flex items-center gap-3 relative z-10">
+                      <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-950">
+                         <BrainCircuit className="w-5 h-5 text-white" />
+                      </div>
+                      <h4 className="font-black text-xs uppercase tracking-widest text-indigo-400">خطة العمل الذكية</h4>
                    </div>
-                   <div className="flex-1">
-                      <h4 className="font-black text-sm uppercase tracking-widest text-indigo-400 mb-1">الخطوة القادمة</h4>
-                      <p className="text-white text-sm font-bold">بدء التواصل الفوري</p>
+                   
+                   {selectedContact.aiStrategy ? (
+                      <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10 relative z-10">
+                         <p className="text-white/90 text-sm leading-relaxed whitespace-pre-wrap font-medium">
+                            {selectedContact.aiStrategy}
+                         </p>
+                         <button 
+                            onClick={handleGenerateStrategy}
+                            className="mt-4 flex items-center gap-2 text-indigo-300 text-xs font-black uppercase tracking-widest hover:text-white transition-colors"
+                         >
+                            <Zap className="w-3 h-3" /> تحديث الخطة
+                         </button>
+                      </div>
+                   ) : (
+                      <div className="flex flex-col items-center py-4 space-y-4 relative z-10">
+                         <p className="text-white/60 text-xs text-center font-bold px-6">
+                            اترك Gemini يحلل هذا العميل ويقترح عليك استراتيجية تواصل مثالية
+                         </p>
+                         <button 
+                           onClick={handleGenerateStrategy}
+                           disabled={isGeneratingStrategy}
+                           className="w-full bg-white text-slate-900 py-4 rounded-2xl font-black text-sm active:scale-95 transition-all flex items-center justify-center gap-2"
+                         >
+                           {isGeneratingStrategy ? (
+                             <div className="flex gap-1">
+                               <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce"></div>
+                               <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                               <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+                             </div>
+                           ) : (
+                             <>توليد خطة العمل <Sparkles className="w-4 h-4 text-indigo-500" /></>
+                           )}
+                         </button>
+                      </div>
+                   )}
+                </div>
+
+                {/* Primary Contact Action */}
+                <button 
+                   onClick={() => setShowPlaybook(true)}
+                   className="w-full bg-indigo-600 p-6 rounded-[32px] text-white flex items-center justify-between shadow-xl shadow-indigo-100 active:scale-95 transition-all"
+                >
+                   <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+                         <MessageCircle className="w-6 h-6" />
+                      </div>
+                      <div className="text-right">
+                         <p className="text-[10px] font-black text-indigo-100 uppercase tracking-widest">التواصل السريع</p>
+                         <p className="text-lg font-black">إرسال واتساب</p>
+                      </div>
                    </div>
-                   <button 
-                     onClick={() => setShowPlaybook(true)}
-                     className="bg-white text-slate-900 px-6 py-4 rounded-2xl font-black text-sm active:scale-95 transition-all"
-                   >
-                     ارسل الآن
-                   </button>
+                   <ChevronRight className="w-6 h-6 text-indigo-200" />
+                </button>
+
+                {/* Info Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="p-5 bg-slate-50 rounded-[28px] space-y-2 border border-slate-100">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">التصنيف</p>
+                      <select 
+                        className="bg-transparent font-black text-indigo-950 outline-none w-full"
+                        value={selectedContact.category}
+                        onChange={(e) => updateContact({...selectedContact, category: e.target.value as ContactCategory})}
+                      >
+                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                   </div>
+                   <div className="p-5 bg-slate-50 rounded-[28px] space-y-2 border border-slate-100">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">المرحلة</p>
+                      <select 
+                        className="bg-transparent font-black text-indigo-950 outline-none w-full"
+                        value={selectedContact.status}
+                        onChange={(e) => updateContact({...selectedContact, status: e.target.value as ContactStatus})}
+                      >
+                        {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                   </div>
                 </div>
 
                 {/* Contact List */}
@@ -412,13 +487,13 @@ const App: React.FC = () => {
                      { icon: <Instagram className="w-5 h-5" />, key: 'instagram', label: 'انستجرام', color: "bg-rose-50 text-rose-500" },
                      { icon: <Mail className="w-5 h-5" />, key: 'email', label: 'إيميل', color: "bg-indigo-50 text-indigo-500" },
                    ].map((item) => (
-                     <div key={item.key} className="flex flex-col p-4 bg-white border border-slate-100 rounded-[24px] space-y-2">
+                     <div key={item.key} className="flex flex-col p-5 bg-white border border-slate-100 rounded-[28px] space-y-2 group focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.color}`}>{item.icon}</div>
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.color} shadow-sm group-focus-within:scale-110 transition-transform`}>{item.icon}</div>
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.label}</p>
                        </div>
                        <input 
-                         className="flex-1 bg-transparent font-bold text-slate-900 focus:outline-none pr-2"
+                         className="flex-1 bg-transparent font-bold text-slate-900 focus:outline-none pr-2 text-lg"
                          value={(selectedContact as any)[item.key]}
                          placeholder={`أدخل ${item.label}`}
                          onChange={(e) => updateContact({...selectedContact, [item.key]: e.target.value})}
@@ -427,14 +502,23 @@ const App: React.FC = () => {
                    ))}
                 </div>
 
-                {/* Notes */}
-                <div className="p-6 bg-slate-50 rounded-[32px] space-y-4">
+                {/* Notes & Field */}
+                <div className="p-8 bg-slate-50 rounded-[40px] space-y-6 border border-slate-100">
                    <div className="space-y-2">
-                      <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ملاحظات خاصة</h5>
+                      <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">تخصص العميل</h5>
+                      <input 
+                        className="w-full bg-transparent font-black text-slate-900 focus:outline-none border-b-2 border-slate-200 pb-2 text-xl"
+                        value={selectedContact.field}
+                        placeholder="أطفال، رجالي، لانجري..."
+                        onChange={(e) => updateContact({...selectedContact, field: e.target.value})}
+                      />
+                   </div>
+                   <div className="space-y-2">
+                      <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ملاحظات الاجتماع</h5>
                       <textarea 
-                        className="w-full bg-transparent font-medium text-slate-600 focus:outline-none min-h-[100px] resize-none"
+                        className="w-full bg-transparent font-medium text-slate-600 focus:outline-none min-h-[120px] resize-none text-lg leading-relaxed"
                         value={selectedContact.notes}
-                        placeholder="اكتب أي تفاصيل أخرى..."
+                        placeholder="اكتب هنا ما لفت انتباهك في الكارت أو الاجتماع..."
                         onChange={(e) => updateContact({...selectedContact, notes: e.target.value})}
                       />
                    </div>
@@ -442,10 +526,19 @@ const App: React.FC = () => {
                 
                 <button 
                   onClick={() => setSelectedContact(null)}
-                  className="w-full py-5 bg-slate-900 text-white font-black text-sm rounded-3xl active:scale-95 transition-all"
+                  className="w-full py-6 bg-slate-900 text-white font-black text-lg rounded-[28px] active:scale-95 transition-all shadow-xl shadow-slate-200"
                 >
-                  حفظ وإغلاق
+                  حفظ التعديلات
                 </button>
+
+                <div className="flex justify-center pt-4">
+                   <button 
+                     onClick={() => deleteContact(selectedContact.id)}
+                     className="flex items-center gap-2 text-rose-500 font-bold text-sm uppercase tracking-widest"
+                   >
+                     <AlertCircle className="w-4 h-4" /> حذف العميل من القائمة
+                   </button>
+                </div>
              </div>
           </div>
         </div>
@@ -457,19 +550,20 @@ const App: React.FC = () => {
           <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowPlaybook(false)}></div>
           <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[48px] safe-bottom p-8 animate-in slide-in-from-bottom duration-400">
              <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-10"></div>
-             <h3 className="text-2xl font-black text-slate-950 mb-8 text-center">اختيار قالب الرسالة</h3>
+             <h3 className="text-2xl font-black text-slate-950 mb-8 text-center">اختيار القالب المناسب</h3>
              <div className="space-y-4">
                 {DEFAULT_TEMPLATES.map((t) => (
                    <button 
                      key={t.id}
                      onClick={() => { if(selectedContact) openWhatsApp(selectedContact, t.text); setShowPlaybook(false); }}
-                     className="w-full p-6 bg-slate-50 hover:bg-indigo-50 border border-slate-100 rounded-[28px] flex items-center justify-between group transition-all text-right"
+                     className="w-full p-7 bg-slate-50 hover:bg-indigo-50 border border-slate-100 rounded-[32px] flex items-center justify-between group transition-all text-right shadow-sm"
                    >
                      <div className="flex-1">
-                        <p className="font-black text-slate-900 text-lg">{t.label}</p>
+                        <p className="font-black text-slate-900 text-lg mb-1">{t.label}</p>
+                        <p className="text-xs text-slate-400 font-bold">إرسال الرسالة المقترحة تلقائياً</p>
                      </div>
-                     <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm text-indigo-500">
-                        <Send className="w-6 h-6" />
+                     <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-lg text-indigo-500 group-active:scale-90 transition-transform">
+                        <Send className="w-7 h-7" />
                      </div>
                    </button>
                 ))}

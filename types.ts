@@ -15,6 +15,7 @@ export interface BusinessCardData {
   field?: string; // Men, Women, Kids, etc.
   status: ContactStatus;
   notes: string;
+  aiStrategy?: string; // الخطة المقترحة من الذكاء الاصطناعي
   lastContactDate?: string;
   createdAt: string;
 }
