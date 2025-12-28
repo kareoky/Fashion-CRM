@@ -19,7 +19,8 @@ import {
   BarChart3,
   Calendar,
   X,
-  Share2
+  Share2,
+  Check
 } from 'lucide-react';
 import { extractBusinessCardData } from './services/geminiService';
 import { BusinessCardData, ContactCategory, ContactStatus } from './types';
@@ -34,6 +35,8 @@ const App: React.FC = () => {
   const [showPlaybook, setShowPlaybook] = useState(false);
   const [showScan, setShowScan] = useState(false);
   
+  const [phoneSelector, setPhoneSelector] = useState<{ contact: BusinessCardData, template: string, numbers: string[] } | null>(null);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -103,7 +106,22 @@ const App: React.FC = () => {
   };
 
   const openWhatsApp = (contact: BusinessCardData, templateText: string) => {
-    // 1. تنظيف النص المستبدل
+    // فصل الأرقام بناءً على أي فواصل (مسافات، فواصل منقوطة، فواصل عادية)
+    const allNumbers = contact.whatsapp
+      .split(/[;,\s]+/)
+      .map(n => n.trim())
+      .filter(n => n.length > 7); // استبعاد الأرقام القصيرة جداً التي قد تكون خطأ في التحليل
+    
+    if (allNumbers.length > 1) {
+      setPhoneSelector({ contact, template: templateText, numbers: allNumbers });
+    } else if (allNumbers.length === 1) {
+      executeWhatsAppLink(allNumbers[0], contact, templateText);
+    } else {
+      alert("لا يوجد رقم واتساب مسجل لهذا العميل");
+    }
+  };
+
+  const executeWhatsAppLink = (number: string, contact: BusinessCardData, templateText: string) => {
     const text = templateText
       .replace(/{{personName}}/g, contact.personName)
       .replace(/{{myName}}/g, "كريم")
@@ -111,28 +129,37 @@ const App: React.FC = () => {
     
     const encodedText = encodeURIComponent(text);
     
-    // 2. معالجة رقم الهاتف ليكون متوافقاً مع واتساب
-    let cleanPhone = contact.whatsapp.replace(/\D/g, ''); // حذف كل شيء ليس رقماً
+    // منطق تنظيف الرقم المطور
+    let raw = number.trim();
     
-    // إذا كان الرقم مصرياً ويبدأ بـ 0، نحول الـ 0 لـ 20
-    if (cleanPhone.startsWith('0')) {
-      cleanPhone = '2' + cleanPhone;
+    // 1. التعامل مع البدايات (حذف 00 أو +)
+    if (raw.startsWith('00')) raw = raw.substring(2);
+    if (raw.startsWith('+')) raw = raw.substring(1);
+    
+    // 2. حذف أي مسافات أو علامات متبقية
+    let clean = raw.replace(/\D/g, ''); 
+    
+    // 3. ذكاء كود الدولة (مصر كمثال أساسي)
+    // إذا كان الرقم يبدأ بـ 20 فهو كامل
+    if (clean.startsWith('20')) {
+      // رقم سليم بالفعل
     } 
-    // إذا كان الرقم قصيراً (مثلاً 11 رقم بدون كود الدولة)، نفترض أنه مصري ونضيف 20
-    else if (cleanPhone.length === 10 || cleanPhone.length === 11) {
-      if (!cleanPhone.startsWith('2')) {
-        cleanPhone = '20' + (cleanPhone.startsWith('0') ? cleanPhone.substring(1) : cleanPhone);
-      }
+    // إذا كان يبدأ بـ 01 فهو موبايل مصري بدون كود الدولة
+    else if (clean.startsWith('01') && clean.length === 11) {
+      clean = '2' + clean; // نحوله لـ 201...
+    }
+    // إذا كان يبدأ بـ 1 فقط (بدون الـ 0)
+    else if (clean.startsWith('1') && clean.length === 10) {
+      clean = '20' + clean;
     }
 
-    // 3. استخدام الرابط الرسمي الكامل لضمان عدم حدوث 404
-    const whatsappUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedText}`;
-    
+    const whatsappUrl = `https://api.whatsapp.com/send?phone=${clean}&text=${encodedText}`;
     window.open(whatsappUrl, '_blank');
 
     if (contact.status === 'New') {
       updateContact({ ...contact, status: 'Contacted', lastContactDate: new Date().toISOString() });
     }
+    setPhoneSelector(null);
   };
 
   const updateContact = (updated: BusinessCardData) => {
@@ -220,19 +247,6 @@ const App: React.FC = () => {
                 }`}></div>
               </div>
             ))}
-            
-            {contacts.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
-                <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-200">
-                  <Sparkles className="w-12 h-12" />
-                </div>
-                <div className="space-y-2">
-                  <h2 className="text-xl font-black text-slate-900">جاهز لأول كارت؟</h2>
-                  <p className="text-sm text-slate-400 max-w-[240px] mx-auto font-bold leading-relaxed">قم بتصوير كروت العمل التي جمعتها وسيقوم الذكاء الاصطناعي بتنظيمها لك.</p>
-                </div>
-                <button onClick={startCamera} className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black shadow-lg shadow-indigo-100 active:scale-95 transition-all">ابدأ المسح الضوئي</button>
-              </div>
-            )}
           </div>
         ) : (
           /* Pipeline View */
@@ -277,6 +291,36 @@ const App: React.FC = () => {
         </button>
       </div>
 
+      {/* Phone Number Selector Sheet */}
+      {phoneSelector && (
+        <div className="fixed inset-0 z-[120]">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setPhoneSelector(null)}></div>
+          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[48px] safe-bottom p-8 animate-in slide-in-from-bottom duration-400">
+             <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-10"></div>
+             <h3 className="text-2xl font-black text-slate-950 mb-4 text-center">اختر الرقم للإرسال</h3>
+             <p className="text-slate-400 text-center text-sm font-bold mb-8">أي رقم تود مراسلته على واتساب؟</p>
+             <div className="space-y-4">
+                {phoneSelector.numbers.map((number, idx) => (
+                   <button 
+                     key={idx}
+                     onClick={() => executeWhatsAppLink(number, phoneSelector.contact, phoneSelector.template)}
+                     className="w-full p-6 bg-slate-50 hover:bg-indigo-50 border border-slate-100 rounded-[28px] flex items-center justify-between group transition-all text-right"
+                   >
+                     <div className="flex-1">
+                        <p className="font-black text-slate-900 text-xl tracking-wider">{number}</p>
+                        <p className="text-xs text-indigo-400 font-bold mt-1">إرسال الرسالة لهذا الرقم</p>
+                     </div>
+                     <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-100 text-white">
+                        <MessageCircle className="w-6 h-6" />
+                     </div>
+                   </button>
+                ))}
+             </div>
+             <button onClick={() => setPhoneSelector(null)} className="w-full mt-10 py-5 text-slate-400 font-black uppercase tracking-widest text-xs">إلغاء</button>
+          </div>
+        </div>
+      )}
+
       {/* Camera UI */}
       {showScan && (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col">
@@ -289,9 +333,6 @@ const App: React.FC = () => {
                   <div className="absolute bottom-0 left-0 w-12 h-12 border-b-4 border-l-4 border-indigo-500 rounded-bl-[36px]"></div>
                   <div className="absolute bottom-0 right-0 w-12 h-12 border-b-4 border-r-4 border-indigo-500 rounded-br-[36px]"></div>
                 </div>
-                <div className="bg-black/40 backdrop-blur-md px-6 py-2 rounded-full mt-10">
-                  <p className="text-white font-bold text-sm tracking-wide">ضع الكارت داخل المستطيل</p>
-                </div>
             </div>
             
             {isProcessing && (
@@ -301,13 +342,12 @@ const App: React.FC = () => {
                   <Sparkles className="w-10 h-10 text-indigo-300 animate-pulse" />
                 </div>
                 <h2 className="text-2xl font-black mb-3">Gemini يحلل الكارت...</h2>
-                <p className="text-white/60 text-sm font-bold leading-relaxed">نقوم باستخراج الاسم، الشركة، الهاتف، ووسائل التواصل الاجتماعي بدقة</p>
               </div>
             )}
           </div>
           <div className="bg-black/95 safe-bottom p-10 flex justify-between items-center px-12">
              <button onClick={stopCamera} className="text-white/60 font-black text-sm uppercase tracking-widest active:text-white">إغلاق</button>
-             <button onClick={captureAndProcess} className="w-20 h-20 rounded-full bg-white flex items-center justify-center border-[8px] border-white/20 active:scale-90 transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+             <button onClick={captureAndProcess} className="w-20 h-20 rounded-full bg-white flex items-center justify-center border-[8px] border-white/20 active:scale-90 transition-all">
                 <div className="w-16 h-16 rounded-full border-4 border-black/10"></div>
              </button>
              <div className="w-16"></div>
@@ -354,9 +394,7 @@ const App: React.FC = () => {
                    </div>
                    <div className="flex-1">
                       <h4 className="font-black text-sm uppercase tracking-widest text-indigo-400 mb-1">الخطوة القادمة</h4>
-                      <p className="text-white text-sm font-bold">
-                        {selectedContact.status === 'New' ? 'إرسال أول رسالة واتساب' : 'متابعة بورتفوليو الأعمال'}
-                      </p>
+                      <p className="text-white text-sm font-bold">بدء التواصل الفوري</p>
                    </div>
                    <button 
                      onClick={() => setShowPlaybook(true)}
@@ -366,77 +404,47 @@ const App: React.FC = () => {
                    </button>
                 </div>
 
-                {/* Info Grid */}
-                <div className="grid grid-cols-2 gap-4">
-                   <div className="p-5 bg-slate-50 rounded-[28px] space-y-2">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">التصنيف</p>
-                      <select 
-                        className="bg-transparent font-black text-indigo-950 outline-none w-full"
-                        value={selectedContact.category}
-                        onChange={(e) => updateContact({...selectedContact, category: e.target.value as ContactCategory})}
-                      >
-                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                   </div>
-                   <div className="p-5 bg-slate-50 rounded-[28px] space-y-2">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">المرحلة</p>
-                      <select 
-                        className="bg-transparent font-black text-indigo-950 outline-none w-full"
-                        value={selectedContact.status}
-                        onChange={(e) => updateContact({...selectedContact, status: e.target.value as ContactStatus})}
-                      >
-                        {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                   </div>
-                </div>
-
                 {/* Contact List */}
                 <div className="space-y-3">
                    {[
-                     { icon: <Phone className="w-5 h-5" />, key: 'phone', color: "bg-blue-50 text-blue-500" },
-                     { icon: <MessageCircle className="w-5 h-5" />, key: 'whatsapp', color: "bg-emerald-50 text-emerald-500" },
-                     { icon: <Instagram className="w-5 h-5" />, key: 'instagram', color: "bg-rose-50 text-rose-500" },
-                     { icon: <Mail className="w-5 h-5" />, key: 'email', color: "bg-indigo-50 text-indigo-500" },
+                     { icon: <Phone className="w-5 h-5" />, key: 'phone', label: 'أرقام الهاتف', color: "bg-blue-50 text-blue-500" },
+                     { icon: <MessageCircle className="w-5 h-5" />, key: 'whatsapp', label: 'أرقام الواتساب', color: "bg-emerald-50 text-emerald-500" },
+                     { icon: <Instagram className="w-5 h-5" />, key: 'instagram', label: 'انستجرام', color: "bg-rose-50 text-rose-500" },
+                     { icon: <Mail className="w-5 h-5" />, key: 'email', label: 'إيميل', color: "bg-indigo-50 text-indigo-500" },
                    ].map((item) => (
-                     <div key={item.key} className="flex items-center gap-4 p-4 bg-white border border-slate-100 rounded-[24px]">
-                       <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${item.color}`}>{item.icon}</div>
+                     <div key={item.key} className="flex flex-col p-4 bg-white border border-slate-100 rounded-[24px] space-y-2">
+                       <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.color}`}>{item.icon}</div>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.label}</p>
+                       </div>
                        <input 
-                         className="flex-1 bg-transparent font-bold text-slate-900 focus:outline-none"
+                         className="flex-1 bg-transparent font-bold text-slate-900 focus:outline-none pr-2"
                          value={(selectedContact as any)[item.key]}
-                         placeholder={`أدخل ${item.key}`}
+                         placeholder={`أدخل ${item.label}`}
                          onChange={(e) => updateContact({...selectedContact, [item.key]: e.target.value})}
                        />
                      </div>
                    ))}
                 </div>
 
-                {/* Advanced Fields */}
+                {/* Notes */}
                 <div className="p-6 bg-slate-50 rounded-[32px] space-y-4">
-                   <div className="space-y-2">
-                      <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">تخصص العميل</h5>
-                      <input 
-                        className="w-full bg-transparent font-bold text-slate-900 focus:outline-none border-b border-slate-200 pb-2"
-                        value={selectedContact.field}
-                        placeholder="أطفال، رجالي، قماش..."
-                        onChange={(e) => updateContact({...selectedContact, field: e.target.value})}
-                      />
-                   </div>
                    <div className="space-y-2">
                       <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ملاحظات خاصة</h5>
                       <textarea 
                         className="w-full bg-transparent font-medium text-slate-600 focus:outline-none min-h-[100px] resize-none"
                         value={selectedContact.notes}
-                        placeholder="اكتب أي تفاصيل أخرى عن اللقاء..."
+                        placeholder="اكتب أي تفاصيل أخرى..."
                         onChange={(e) => updateContact({...selectedContact, notes: e.target.value})}
                       />
                    </div>
                 </div>
                 
                 <button 
-                  onClick={() => { if(confirm('هل أنت متأكد من حذف العميل؟')) { setContacts(prev => prev.filter(c => c.id !== selectedContact.id)); setSelectedContact(null); } }}
-                  className="w-full py-5 text-rose-500 font-black text-sm border-2 border-rose-50 rounded-3xl active:bg-rose-50"
+                  onClick={() => setSelectedContact(null)}
+                  className="w-full py-5 bg-slate-900 text-white font-black text-sm rounded-3xl active:scale-95 transition-all"
                 >
-                  حذف جهة الاتصال
+                  حفظ وإغلاق
                 </button>
              </div>
           </div>
@@ -459,9 +467,8 @@ const App: React.FC = () => {
                    >
                      <div className="flex-1">
                         <p className="font-black text-slate-900 text-lg">{t.label}</p>
-                        <p className="text-xs text-slate-400 font-bold mt-1">إرسال النص المخصص بضغطة واحدة</p>
                      </div>
-                     <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm text-indigo-500 group-hover:scale-110 transition-transform">
+                     <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm text-indigo-500">
                         <Send className="w-6 h-6" />
                      </div>
                    </button>

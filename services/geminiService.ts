@@ -33,10 +33,15 @@ export async function extractBusinessCardData(base64Image: string) {
               },
             },
             {
-              text: `Extract all relevant professional contact information from this business card. 
-              Be accurate. If a field is missing, return an empty string.
-              Also, suggest a category based on the content (Brand, Factory, Export, Workshop, or Other).
-              Return the data strictly in JSON format.`,
+              text: `قم باستخراج كافة بيانات الاتصال المهنية من كارت العمل هذا بدقة عالية جداً.
+              تعليمات صارمة للأرقام:
+              1. إذا وجدت أكثر من رقم هاتف، استخرج كل رقم على حدة.
+              2. في حقل الـ phone: ضع كل الأرقام (موبايل وأرضي) وافصل بينهم بـ " ; " (فاصلة منقوطة ومسافة).
+              3. في حقل الـ whatsapp: ابحث عن أرقام الموبايل فقط (التي تبدأ بـ 01 في مصر أو تحتوي على كود دولة). إذا وجدت أكثر من رقم موبايل، افصل بينهم بـ " ; ".
+              4. لا تقم أبداً بدمج رقمين في سلسلة واحدة بدون فاصلة منقوطة واضحة.
+              5. إذا كان الرقم يبدأ بـ 0020 أو +20، اتركه كما هو ولا تحذف الكود.
+              6. اقترح تصنيفاً (Brand, Factory, Export, Workshop, Other).
+              7. أجب بتنسيق JSON فقط.`,
             },
           ],
         },
@@ -48,13 +53,13 @@ export async function extractBusinessCardData(base64Image: string) {
           properties: {
             companyName: { type: Type.STRING },
             personName: { type: Type.STRING },
-            phone: { type: Type.STRING },
-            whatsapp: { type: Type.STRING },
+            phone: { type: Type.STRING, description: "All numbers separated by ' ; '" },
+            whatsapp: { type: Type.STRING, description: "Mobile numbers only separated by ' ; '" },
             email: { type: Type.STRING },
             instagram: { type: Type.STRING },
             address: { type: Type.STRING },
-            category: { type: Type.STRING, description: "One of: Brand, Factory, Export, Workshop, Other" },
-            field: { type: Type.STRING, description: "e.g., Men, Women, Kids, Textile" }
+            category: { type: Type.STRING },
+            field: { type: Type.STRING }
           },
           required: ["companyName", "personName"]
         }
