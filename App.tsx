@@ -103,13 +103,33 @@ const App: React.FC = () => {
   };
 
   const openWhatsApp = (contact: BusinessCardData, templateText: string) => {
+    // 1. تنظيف النص المستبدل
     const text = templateText
       .replace(/{{personName}}/g, contact.personName)
-      .replace(/{{myName}}/g, "كريم") // اسم افتراضي للمستخدم
+      .replace(/{{myName}}/g, "كريم")
       .replace(/{{event}}/g, "معرض الأزياء");
-    const encoded = encodeURIComponent(text);
-    const phone = contact.whatsapp.replace(/\D/g, '');
-    window.open(`https://wa.me/${phone}?text=${encoded}`, '_blank');
+    
+    const encodedText = encodeURIComponent(text);
+    
+    // 2. معالجة رقم الهاتف ليكون متوافقاً مع واتساب
+    let cleanPhone = contact.whatsapp.replace(/\D/g, ''); // حذف كل شيء ليس رقماً
+    
+    // إذا كان الرقم مصرياً ويبدأ بـ 0، نحول الـ 0 لـ 20
+    if (cleanPhone.startsWith('0')) {
+      cleanPhone = '2' + cleanPhone;
+    } 
+    // إذا كان الرقم قصيراً (مثلاً 11 رقم بدون كود الدولة)، نفترض أنه مصري ونضيف 20
+    else if (cleanPhone.length === 10 || cleanPhone.length === 11) {
+      if (!cleanPhone.startsWith('2')) {
+        cleanPhone = '20' + (cleanPhone.startsWith('0') ? cleanPhone.substring(1) : cleanPhone);
+      }
+    }
+
+    // 3. استخدام الرابط الرسمي الكامل لضمان عدم حدوث 404
+    const whatsappUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedText}`;
+    
+    window.open(whatsappUrl, '_blank');
+
     if (contact.status === 'New') {
       updateContact({ ...contact, status: 'Contacted', lastContactDate: new Date().toISOString() });
     }
@@ -120,7 +140,6 @@ const App: React.FC = () => {
     setSelectedContact(updated);
   };
 
-  // Stats for Dashboard
   const stats = {
     total: contacts.length,
     new: contacts.filter(c => c.status === 'New').length,
@@ -130,7 +149,7 @@ const App: React.FC = () => {
   return (
     <div className="h-screen w-screen flex flex-col bg-[#F9FAFB] text-slate-900 select-none overflow-hidden" dir="rtl">
       
-      {/* IOS Sliver App Bar */}
+      {/* Header */}
       <header className="safe-top bg-white/80 backdrop-blur-xl sticky top-0 z-40 px-6 pt-4 pb-4 flex justify-between items-end border-b border-slate-100">
         <div className="flex flex-col">
           <span className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-1">Fashion Contacts CRM</span>
@@ -142,7 +161,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Analytics Dashboard Strip */}
+      {/* Stats */}
       <div className="px-6 py-4 flex gap-3 overflow-x-auto no-scrollbar bg-white">
         <div className="flex-1 min-w-[120px] p-4 bg-indigo-50 rounded-3xl flex flex-col items-center border border-indigo-100/50">
           <span className="text-indigo-600 font-black text-xl">{stats.total}</span>
@@ -216,7 +235,7 @@ const App: React.FC = () => {
             )}
           </div>
         ) : (
-          /* Pipeline View with horizontal scrolling like Flutter Tabs */
+          /* Pipeline View */
           <div className="flex gap-4 p-6 overflow-x-auto h-full items-start custom-scroll no-scrollbar fade-in">
             {STATUSES.map(status => (
               <div key={status} className="w-80 shrink-0 space-y-5">
@@ -243,7 +262,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Floating Bottom Nav - Flutter Glass Style */}
+      {/* Floating Bottom Nav */}
       <div className="fixed bottom-10 left-8 right-8 h-20 glass rounded-[36px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.15)] flex items-center justify-around px-4 z-40 border border-white/50">
         <button onClick={() => setView('list')} className={`flex flex-col items-center gap-1 transition-all p-4 ${view === 'list' ? 'text-indigo-600 scale-110' : 'text-slate-300'}`}>
           <ListIcon className="w-7 h-7" strokeWidth={view === 'list' ? 3 : 2} />
@@ -258,7 +277,7 @@ const App: React.FC = () => {
         </button>
       </div>
 
-      {/* Camera UI - Full Screen */}
+      {/* Camera UI */}
       {showScan && (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col">
           <div className="relative flex-1 overflow-hidden">
@@ -297,7 +316,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* iOS Modal Bottom Sheet: Profile */}
+      {/* iOS Modal Profile */}
       {selectedContact && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setSelectedContact(null)}></div>
