@@ -10,12 +10,15 @@ export interface BusinessCardData {
   whatsapp: string;
   email: string;
   instagram: string;
+  facebook?: string;
+  telegram?: string;
+  website?: string;
   address: string;
   category: ContactCategory;
-  field?: string; // Men, Women, Kids, etc.
+  field?: string; 
   status: ContactStatus;
   notes: string;
-  aiStrategy?: string; // الخطة المقترحة من الذكاء الاصطناعي
+  aiStrategy?: string;
   lastContactDate?: string;
   createdAt: string;
 }

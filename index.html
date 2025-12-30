@@ -6,12 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Fashion CRM Pro</title>
     
-    <!-- Apple PWA Meta Tags -->
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <!-- Apple PWA Meta Tags (Critical for iOS) -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="FashionCRM">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/10313/10313083.png">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3616/3616584.png">
     
+    <!-- Microsoft / Windows Tags -->
+    <meta name="msapplication-TileColor" content="#6366f1">
+    <meta name="msapplication-tap-highlight" content="no">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
@@ -25,15 +34,23 @@
             user-select: none;
             background-color: #f8fafc;
             overscroll-behavior-y: none;
+            padding: 0;
+            margin: 0;
+            height: 100vh;
+            width: 100vw;
+            position: fixed; /* Prevent bouncy scrolling on iOS */
+        }
+        #root {
+            height: 100%;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
         }
         .safe-top { padding-top: var(--safe-area-inset-top); }
         .safe-bottom { padding-bottom: var(--safe-area-inset-bottom); }
-        .safe-bottom-margin { margin-bottom: var(--safe-area-inset-bottom); }
         
-        .custom-scroll {
-            scroll-behavior: smooth;
-            -webkit-overflow-scrolling: touch;
-        }
+        .custom-scroll::-webkit-scrollbar { display: none; }
+        .custom-scroll { -ms-overflow-style: none; scrollbar-width: none; }
         
         .glass {
             background: rgba(255, 255, 255, 0.85);
@@ -46,7 +63,6 @@
             box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.04), 0 4px 10px -2px rgba(0, 0, 0, 0.02);
         }
 
-        /* Flutter-like route transitions */
         .fade-in {
             animation: fadeIn 0.3s ease-out;
         }
@@ -71,5 +87,17 @@
 <body class="overflow-hidden">
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
+    <script>
+        // Define global environment guards to prevent contentScriptData errors
+        window.contentScriptData = window.contentScriptData || { init_ts: Date.now() };
+        
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW Registered'))
+                    .catch(err => console.log('SW Reg Error', err));
+            });
+        }
+    </script>
 </body>
 </html>

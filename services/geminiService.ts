@@ -23,12 +23,11 @@ export async function extractBusinessCardData(base64Image: string) {
           parts: [
             { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
             {
-              text: `قم باستخراج كافة بيانات الاتصال المهنية من كارت العمل هذا بدقة عالية جداً.
-              تعليمات صارمة للأرقام:
-              1. إذا وجدت أكثر من رقم هاتف، استخرج كل رقم على حدة.
-              2. في حقل الـ phone: ضع كل الأرقام وافصل بينهم بـ " ; ".
-              3. في حقل الـ whatsapp: ابحث عن أرقام الموبايل فقط وافصل بينهم بـ " ; ".
-              4. إذا كان الرقم يبدأ بـ 0020 أو +20، اتركه كما هو.
+              text: `حلل كارت العمل هذا بدقة لاستخراج كافة الروابط والبيانات:
+              1. استخرج روابط أو يوزرات: Instagram, Facebook, Telegram, Website.
+              2. فك شفرة أي QR Code موجود بالنظر للروابط المكتوبة بجانبه.
+              3. استخرج أرقام الهواتف وافصل بينها بـ " ; ".
+              4. حدد اسم الشركة والشخص المسؤول.
               5. اقترح تصنيفاً (Brand, Factory, Export, Workshop, Other).
               6. أجب بتنسيق JSON فقط.`,
             },
@@ -46,6 +45,9 @@ export async function extractBusinessCardData(base64Image: string) {
             whatsapp: { type: Type.STRING },
             email: { type: Type.STRING },
             instagram: { type: Type.STRING },
+            facebook: { type: Type.STRING },
+            telegram: { type: Type.STRING },
+            website: { type: Type.STRING },
             address: { type: Type.STRING },
             category: { type: Type.STRING },
             field: { type: Type.STRING }
@@ -62,31 +64,17 @@ export async function extractBusinessCardData(base64Image: string) {
   }
 }
 
-export async function generateFollowUpStrategy(contact: any) {
+export async function generateAIStrategy(contact: any) {
   if (!apiKey) throw new Error("API Key not configured");
   const ai = new GoogleGenAI({ apiKey });
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `بصفتك خبير تطوير أعمال لمصور فوتوغرافي محترف، حلل بيانات العميل التالي واقترح خطة عمل (Action Plan) ذكية لإغلاق الصفقة:
-      اسم الشركة: ${contact.companyName}
-      اسم الشخص: ${contact.personName}
-      التصنيف: ${contact.category}
-      التخصص: ${contact.field}
-      الملاحظات: ${contact.notes}
-
-      المطلوب:
-      1. تحليل سريع لنوع العميل (إيه اللي بيهمهم؟ الجودة ولا السعر ولا السرعة؟).
-      2. 3 خطوات محددة للمتابعة (Action Steps).
-      3. "خطاف" أو جملة افتتاحية مميزة للرسالة القادمة بناءً على تخصصه.
-      4. نصيحة ذهبية للتعامل مع هذا العميل تحديداً.
-      أجب باللغة العربية بأسلوب احترافي ومختصر (نقاط).`,
+      contents: `بصفتك خبير تسويق، حلل بيانات العميل "${contact.companyName}" واقترح أفضل طريقة لبدء تعاون معهم كمصور محترف بناءً على تخصصهم: ${contact.field}. اقترح نص رسالة جذاب.`,
     });
-
     return response.text;
-  } catch (error) {
-    console.error("Error generating strategy:", error);
-    return "تعذر توليد الخطة حالياً، حاول مرة أخرى.";
+  } catch (e) {
+    return "تعذر تحليل الاستراتيجية.";
   }
 }

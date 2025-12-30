@@ -1,20 +1,7 @@
 {
-  "name": "Fashion CRM Pro",
-  "short_name": "FashionCRM",
-  "description": "Premium Fashion Photographer CRM with AI Scanning",
-  "icons": [
-    {
-      "src": "https://cdn-icons-png.flaticon.com/512/10313/10313083.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ],
-  "start_url": ".",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#6366f1",
   "requestFramePermissions": [
     "camera"
-  ]
+  ],
+  "name": "",
+  "description": ""
 }
