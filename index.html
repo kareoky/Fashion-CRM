@@ -4,23 +4,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Fashion CRM Pro</title>
+    <title>Kareem CRM Pro</title>
     
     <!-- PWA Meta Tags -->
     <link rel="manifest" href="./manifest.json">
-    <meta name="theme-color" content="#6366f1">
+    <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     
-    <!-- Apple PWA Meta Tags (Critical for iOS) -->
+    <!-- Apple PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="FashionCRM">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3616/3616584.png">
+    <meta name="apple-mobile-web-app-title" content="KareemCRM">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/10334/10334863.png">
     
-    <!-- Microsoft / Windows Tags -->
-    <meta name="msapplication-TileColor" content="#6366f1">
-    <meta name="msapplication-tap-highlight" content="no">
-
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
@@ -32,44 +28,38 @@
             font-family: 'Plus Jakarta Sans', 'Cairo', sans-serif;
             -webkit-tap-highlight-color: transparent;
             user-select: none;
-            background-color: #f8fafc;
+            background-color: #000000;
             overscroll-behavior-y: none;
             padding: 0;
             margin: 0;
             height: 100vh;
             width: 100vw;
-            position: fixed; /* Prevent bouncy scrolling on iOS */
+            position: fixed; 
         }
-        #root {
-            height: 100%;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-        }
+        #root { height: 100%; width: 100%; display: flex; flex-direction: column; }
         .safe-top { padding-top: var(--safe-area-inset-top); }
         .safe-bottom { padding-bottom: var(--safe-area-inset-bottom); }
-        
         .custom-scroll::-webkit-scrollbar { display: none; }
         .custom-scroll { -ms-overflow-style: none; scrollbar-width: none; }
         
+        /* Studio Glass Effects */
         .glass {
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-top: 1px solid rgba(255, 255, 255, 0.4);
+            background: rgba(10, 10, 10, 0.8);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
         }
 
-        .ios-shadow {
-            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.04), 0 4px 10px -2px rgba(0, 0, 0, 0.02);
+        input, textarea { caret-color: #6366f1; }
+        
+        .animate-in {
+            animation-duration: 0.3s;
+            animation-fill-mode: both;
         }
-
-        .fade-in {
-            animation: fadeIn 0.3s ease-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        .fade-in { animation-name: fadeIn; }
+        .slide-in-from-bottom { animation-name: slideInBottom; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideInBottom { from { transform: translateY(100%); } to { transform: translateY(0); } }
     </style>
     <script type="importmap">
     {
@@ -88,9 +78,6 @@
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
     <script>
-        // Define global environment guards to prevent contentScriptData errors
-        window.contentScriptData = window.contentScriptData || { init_ts: Date.now() };
-        
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')

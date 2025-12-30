@@ -1,24 +1,24 @@
 
 {
-  "name": "Fashion CRM Pro",
-  "short_name": "FashionCRM",
-  "description": "Premium Fashion Photographer CRM with AI Scanning",
-  "start_url": "./index.html",
+  "name": "Kareem Karaoke CRM",
+  "short_name": "KaraokeCRM",
+  "description": "Premium CRM for Fashion Photographer Kareem Karaoke",
+  "start_url": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#6366f1",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/3616/3616584.png",
+      "src": "https://cdn-icons-png.flaticon.com/512/10334/10334863.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/10334/10334863.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
-    },
-    {
-      "src": "https://cdn-icons-png.flaticon.com/512/3616/3616584.png",
-      "sizes": "192x192",
-      "type": "image/png"
     }
   ]
 }
